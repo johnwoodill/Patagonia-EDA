@@ -115,13 +115,12 @@ def processGFW(i):
 # Main function
 if __name__ == '__main__':
 
-    DIRS = GFW_directories()
+    DIRS = sorted(GFW_directories())
     
     # GFW Public Data
     gfw_vessel_dat = pd.read_csv('~/Data/GFW_public/fishing_vessels/fishing_vessels.csv')
 
     # Process data in parallel
-    
-    # CHANGE BEFORE LETTING IT RIP!!!!!
-    INPUTS = DIRS[1:20]
+    INPUTS = DIRS
     results = Parallel(n_jobs=NUM_CORES)(delayed(processGFW)(i) for i in INPUTS)
+    del results
