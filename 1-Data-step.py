@@ -30,11 +30,12 @@ import os as os
 import glob
 from joblib import Parallel, delayed
 import multiprocessing
+import gc
 
 #----------------------------
 # CONSTANTS
 GFW_DIR = '/data2/GFW_point/'
-NUM_CORES = 10
+NUM_CORES = 30
 
 #----------------------------
 # Functions
@@ -85,7 +86,7 @@ def data_step(data):
 def processGFW(i):
     '''Parallel function'''
 
-        # Get subdirectory list of files
+    # Get subdirectory list of files
     subdir = GFW_DIR + i
     allFiles = glob.glob(subdir + "/*.csv")
     list_ = []
@@ -110,6 +111,8 @@ def processGFW(i):
     # Save data
     outdat.to_csv('~/Data/GFW_point/Patagonia_Shelf/csv/' + filename + '.csv', index=False)
     outdat.to_feather('~/Data/GFW_point/Patagonia_Shelf/feather/' + filename + '.feather')
+    gc.collect()
+    return 0
 
 
 # Main function
@@ -122,5 +125,11 @@ if __name__ == '__main__':
 
     # Process data in parallel
     INPUTS = DIRS
-    results = Parallel(n_jobs=NUM_CORES)(delayed(processGFW)(i) for i in INPUTS)
-    del results
+    #results = Parallel(n_jobs=NUM_CORES, verbose=10)(delayed(processGFW)(i) for i in INPUTS)
+    #del results
+    #print(results)
+    
+    pool = multiprocessing.Pool(NUM_CORES, maxtasksperchild=1)         
+    #pool.start()
+    pool.map(processGFW, INPUTS)
+    pool.close()
