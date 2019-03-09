@@ -31,11 +31,16 @@ import glob
 from joblib import Parallel, delayed
 import multiprocessing
 import gc
+from datetime import datetime, timedelta
 
+import sys
 #----------------------------
 # CONSTANTS
 GFW_DIR = '/data2/GFW_point/'
-NUM_CORES = 30
+GFW_OUT_DIR_CSV = '/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/csv/'
+GFW_OUT_DIR_FEATHER = '/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/feather/'
+OUTPUT_DIR = ''
+NUM_CORES = 5
 
 #----------------------------
 # Functions
@@ -90,46 +95,85 @@ def processGFW(i):
     subdir = GFW_DIR + i
     allFiles = glob.glob(subdir + "/*.csv")
     list_ = []
-    
-    # Append files in subdir
-    for file_ in allFiles:
-        df = pd.read_csv(file_, index_col=None, header=0)
-        list_.append(df)
-        dat = pd.concat(list_, axis = 0, ignore_index = True)
-    
-    # Append data
-    outdat = data_step(data=dat)
 
-    # Get string for filename from timestamp
-    filename = f"{outdat['year'][1]}-" + f"{outdat['month'][1]}".zfill(2) + f"-" + f"{outdat['day'][1]}".zfill(2)
-    
-    # Save unique mmsi for each day
-    unique_mmsi_data = outdat['mmsi'].unique()
-    unique_mmsi = pd.DataFrame({'mmsi':unique_mmsi_data})
-    unique_mmsi.to_feather('~/Data/GFW_point/Patagonia_Shelf/vessel_list/' + filename +  '_vessel_list'  + '.feather')
-    
-    # Save data
-    outdat.to_csv('~/Data/GFW_point/Patagonia_Shelf/csv/' + filename + '.csv', index=False)
-    outdat.to_feather('~/Data/GFW_point/Patagonia_Shelf/feather/' + filename + '.feather')
-    gc.collect()
-    return 0
+    if len(allFiles) > 0:
+        # Append files in subdir
+        for file_ in allFiles:
+            df = pd.read_csv(file_, index_col=None, header=0)
+            list_.append(df)
+            dat = pd.concat(list_, axis = 0, ignore_index = True)
+
+        # Append data
+        outdat = data_step(data=dat)
+
+        # Get string for filename from timestamp
+        filename = f"{outdat['year'][1]}-" + f"{outdat['month'][1]}".zfill(2) + f"-" + f"{outdat['day'][1]}".zfill(2)
+
+        # Save unique mmsi for each day
+        unique_mmsi_data = outdat['mmsi'].unique()
+        unique_mmsi = pd.DataFrame({'mmsi':unique_mmsi_data})
+        unique_mmsi.to_feather('~/Data/GFW_point/Patagonia_Shelf/vessel_list/' + filename +  '_vessel_list'  + '.feather')
+
+        # Save data
+        outdat.to_csv('~/Data/GFW_point/Patagonia_Shelf/csv/' + filename + '.csv', index=False)
+        outdat.to_feather('~/Data/GFW_point/Patagonia_Shelf/feather/' + filename + '.feather')
+        gc.collect()
+        return 0
+    else:
+        print("Error: " + subdir + " folder does not exist.")
+#        return 0
 
 
 # Main function
 if __name__ == '__main__':
 
-    DIRS = sorted(GFW_directories())
+    gfw_list_dirs = sorted(GFW_directories())
+
+    # Check for missing files
+    # Get csv files from output
+    csv_files = glob.glob(GFW_OUT_DIR_CSV + "*.csv")
+    csv_files = [item.replace('/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/csv/', '') for item in csv_files]
+    csv_files = [item.replace('.csv', '') for item in csv_files]
+
+    # Get feather files
+    feather_files = glob.glob(GFW_OUT_DIR_CSV + "*.csv")
+    feather_files = [item.replace('/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/csv/', '') for item in feather_files]
+    feather_files = [item.replace('.csv', '') for item in feather_files]
+
+    # Compare csv and feather for differences
+    csv_feather_diff = list(set(csv_files).difference(feather_files))
+    
+    # Compare output to GFW list
+    gfw_diff = list(set(gfw_list_dirs).difference(feather_files))
+
+    # Extend differences in csv and feather
+    gfw_diff.extend(csv_feather_diff)
+    
+    # New gfw_list_dirs
+    gfw_list_dirs = gfw_diff
+    
+    # Need to shift dates because previous date equals current date (wrong time stamp data)
+    new_gfw_list_dirs = []
+    for i in gfw_list_dirs:
+        indate = i
+        outdate = datetime.strptime(indate, "%Y-%m-%d")
+        outdate = outdate + timedelta(days=-1)
+        outdate = datetime.strftime(outdate, "%Y-%m-%d")
+        new_gfw_list_dirs.append(outdate)
     
     # GFW Public Data
     gfw_vessel_dat = pd.read_csv('~/Data/GFW_public/fishing_vessels/fishing_vessels.csv')
 
-    # Process data in parallel
-    INPUTS = DIRS
-    #results = Parallel(n_jobs=NUM_CORES, verbose=10)(delayed(processGFW)(i) for i in INPUTS)
-    #del results
-    #print(results)
-    
-    pool = multiprocessing.Pool(NUM_CORES, maxtasksperchild=1)         
-    #pool.start()
-    pool.map(processGFW, INPUTS)
-    pool.close()
+    if len(new_gfw_list_dirs) > 0:
+        # Process data in parallel
+        INPUTS = new_gfw_list_dirs
+        #results = Parallel(n_jobs=NUM_CORES, verbose=10)(delayed(processGFW)(i) for i in INPUTS)
+        #del results
+        #print(results)
+
+        pool = multiprocessing.Pool(NUM_CORES, maxtasksperchild=1)         
+        #pool.start()
+        pool.map(processGFW, INPUTS)
+        pool.close()
+    else:
+        print("All files have been processed.")
