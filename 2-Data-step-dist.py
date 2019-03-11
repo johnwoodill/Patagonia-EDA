@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import glob
 from scipy import stats
+import multiprocessing
 from scipy.stats import kurtosis, skew
 
 # Calculate spherical distances between lat/long and populate matrix
@@ -22,49 +23,57 @@ def spherical_dist_populate(lat_lis, lon_lis, r=3958.75):
     mtx = r * np.arccos(cos_lat_d - cos_lat_i*cos_lat_J*(1 - cos_lon_d))
     return mtx
 
-# Get list of files in folder
-files = []
-for file in glob.glob("/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/feather" + "/*.feather"):
-    files.append(file)
-    nfiles = sorted(files)
+def mp_gfw_dist(data_loc):
+    
+    indat = pd.read_feather(data_loc)
+    indat = indat.sort_values('mmsi')
+    outdat = indat
+    
+    # Average lat/long
+    outdat['lat_avg'] = outdat.groupby('mmsi').lat.transform('mean')
+    outdat['lon_avg'] = outdat.groupby('mmsi').lon.transform('mean')
+    outdat = outdat.groupby('mmsi').first().reset_index()
+        
+    # Organize data
+    outdat = outdat[['timestamp', 'year', 'month', 'day', 'mmsi', 'lat_avg', 'lon_avg', \
+                     'segment_id', 'message_id', 'type', 'speed', 'course', 'heading', 'shipname', 'callsign', \
+                      'destination', 'elevation_m', 'distance_from_shore_m', 'distance_from_port_m', 'nnet_score', \
+                      'logistic_score', 'flag', 'geartype', 'length', 'tonnage', 'engine_power', 'active_2012', \
+                      'active_2013', 'active_2014', 'active_2015', 'active_2016']]
+        
+    # f-string for date
+    date = f"{outdat['year'][1]}-" + f"{outdat['month'][1]}".zfill(2) + f"-" + f"{outdat['day'][1]}".zfill(2)
+        
+    # Build distance matrix
+    matdat = pd.DataFrame(spherical_dist_populate(outdat['lat_avg'], outdat['lon_avg']))
+    matdat = matdat.rename(index=outdat.mmsi, columns = outdat.mmsi)    
+        
+    # Stack and form three column data.frame 
+    tmatdat = matdat.stack()
+    lst = tmatdat.index.tolist()
+    vessel_A = [item[0] for item in lst]
+    vessel_B = [item[1] for item in lst]
+    distance = tmatdat.values
+
+    # Build data frame
+    odat = pd.DataFrame({'date': date, 'vessel_A': vessel_A, 'vessel_B':vessel_B, 'distance': distance})
+    odat = odat.sort_values(['vessel_A', 'distance'])
+    odat = odat.reset_index(drop=True)
+            
+    # Save
+    odat.to_feather('/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/distance_data/circle_measure/' + date + '_dmatrix' + '.feather')
+    return 0
 
 if __name__ == '__main__':
 
-    # Loop through processed files
-    for i in nfiles:
-        indat = pd.read_feather(i)
-        indat = indat.sort_values('mmsi')
-        outdat = indat
+    # Get list of files in folder
+    files = glob.glob("/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/feather" + "/*.feather")
+    nfiles = sorted(files)
+    
+    # Multiprocess files
+    pool = multiprocessing.Pool(10, maxtasksperchild=1)         
+    pool.map(mp_gfw_dist, nfiles)
+    pool.close()
+    
+
         
-        # Average lat/long
-        outdat['lat_avg'] = outdat.groupby('mmsi').lat.transform('mean')
-        outdat['lon_avg'] = outdat.groupby('mmsi').lon.transform('mean')
-        outdat = outdat.groupby('mmsi').first().reset_index()
-        
-        # Organize data
-        outdat = outdat[['timestamp', 'year', 'month', 'day', 'mmsi', 'lat', 'lon', \
-                        'segment_id', 'message_id', 'type', 'speed', 'course', 'heading', 'shipname', 'callsign', \
-                         'destination', 'elevation_m', 'distance_from_shore_m', 'distance_from_port_m', 'nnet_score', \
-                         'logistic_score', 'flag', 'geartype', 'length', 'tonnage', 'engine_power', 'active_2012', \
-                         'active_2013', 'active_2014', 'active_2015', 'active_2016']]
-        
-        # f-string for date
-        date = f"{outdat['year'][1]}-" + f"{outdat['month'][1]}".zfill(2) + f"-" + f"{outdat['day'][1]}".zfill(2)
-        
-        # Build distance matrix
-        matdat = pd.DataFrame(spherical_dist_populate(outdat['lat'], outdat['lon']))
-        matdat = matdat.rename(index=outdat.mmsi, columns = outdat.mmsi)    
-        
-        # Collect, stack, and form three column data.frame 
-        tmatdat = matdat.where(np.triu(np.ones(matdat.shape)).astype(np.bool))
-        tmatdat = tmatdat.stack().reset_index()
-        
-        # Add date
-        tmatdat['date'] = date
-        
-        # Column names: vessel_A = reference boat; vessel_B = boat to calc distance to; distance = distance
-        tmatdat.columns = ['vessel_A', 'vessel_B', 'distance', 'date']
-        tmatdat = tmatdat[['date', 'vessel_A', 'vessel_B', 'distance']]
-        
-        # Save
-        tmatdat.to_feather('/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/distance_data/circle_measure/' + date + '_dmatrix' + '.feather')
