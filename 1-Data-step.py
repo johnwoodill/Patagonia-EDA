@@ -67,6 +67,8 @@ def data_step(data):
     lat2 = -23
     retdat = data[(data['lon'] >= lon1) & (data['lon'] <= lon2) & (data['lat'] >= lat1) & (data['lat'] <= lat2)]
     
+    #retdat = retdat['distance_from_shore_m' >= 10]
+    
     # Separate Year, month, day, hour, minute, second
     retdat.loc[:, 'timestamp'] = pd.to_datetime(retdat['timestamp'], format="%Y-%m-%d %H:%M:%S UTC")
     retdat.loc[:, 'year'] = pd.DatetimeIndex(retdat['timestamp']).year 
