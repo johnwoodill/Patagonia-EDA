@@ -32,8 +32,8 @@ from joblib import Parallel, delayed
 import multiprocessing
 import gc
 from datetime import datetime, timedelta
-
 import sys
+
 #----------------------------
 # CONSTANTS
 GFW_DIR = '/data2/GFW_point/'
@@ -44,6 +44,46 @@ NUM_CORES = 5
 
 #----------------------------
 # Functions
+
+def calc_fishing_effect(dat):
+    timedat = dat.sort_values('timestamp')
+    t1 = timedat.timestamp.iloc[0]
+    t2 = timedat.timestamp.iloc[-1]    
+    
+    t1 = datetime.strptime(t1, "%Y-%m-%d %H:%M:%S UTC")
+    t2 = datetime.strptime(t2, "%Y-%m-%d %H:%M:%S UTC")
+    tdiff = abs(t2 - t1)
+    tdiff = tdiff.seconds/60/60
+    return tdiff
+
+def spherical_dist_populate(lat_lis, lon_lis, r=3958.75):
+    lat_mtx = np.array([lat_lis]).T * np.pi / 180
+    lon_mtx = np.array([lon_lis]).T * np.pi / 180
+
+    cos_lat_i = np.cos(lat_mtx)
+    cos_lat_j = np.cos(lat_mtx)
+    cos_lat_J = np.repeat(cos_lat_j, len(lat_mtx), axis=1).T
+
+    lat_Mtx = np.repeat(lat_mtx, len(lat_mtx), axis=1).T
+    cos_lat_d = np.cos(lat_mtx - lat_Mtx)
+
+    lon_Mtx = np.repeat(lon_mtx, len(lon_mtx), axis=1).T
+    cos_lon_d = np.cos(lon_mtx - lon_Mtx)
+
+    mtx = r * np.arccos(cos_lat_d - cos_lat_i*cos_lat_J*(1 - cos_lon_d))
+    return mtx
+
+def stationary_vessel(data):
+    data = data.sort_values(['lat', 'lon'])
+    min_d_lat = data.lat.iloc[0]
+    min_d_lon = data.lon.iloc[0]
+    max_d_lat = data.lat.iloc[-1]
+    max_d_lon = data.lon.iloc[-1]
+
+    dist = spherical_dist_populate([min_d_lat, max_d_lat], [min_d_lon, max_d_lon])
+    dist = dist[1,0]
+    
+    return dist
 
 def GFW_directories():
     '''Get all GFW_point directions'''
@@ -65,10 +105,36 @@ def data_step(data):
     lon2 = -22
     lat1 = -58
     lat2 = -23
+    
+    # (1) Subset out Patagonia Shelf
     retdat = data[(data['lon'] >= lon1) & (data['lon'] <= lon2) & (data['lat'] >= lat1) & (data['lat'] <= lat2)]
     
-    #retdat = retdat['distance_from_shore_m' >= 10]
+    # Get list of all vessels in region
+    unique_vessels = list(retdat['mmsi'].unique())
+
+    # Subset to allow for all segments even if outside of range
+    retdat = data[data['mmsi'].isin(unique_vessels)]
     
+    # (2) Remove boats on land and at port
+    retdat = retdat[retdat['distance_from_shore_m'] > 0]
+    retdat = retdat[retdat['distance_from_port_m'] > 0]
+    
+    # (3) Determine distance traveled 
+    group_mmsi = retdat.groupby('mmsi').apply(stationary_vessel)
+    mdat = pd.DataFrame({'mmsi': group_mmsi.index.values, 'dist_traveled': group_mmsi[:]})
+    mdat = mdat.rename_axis(None)
+    retdat = pd.merge(retdat, mdat, on="mmsi", how='left')
+        
+    # (4) In/Out of EEZ (country)
+    
+    # (5) Calculate daily fishing effort
+    group_time = retdat.groupby('mmsi').apply(calc_fishing_effect)
+    mdat = pd.DataFrame({'mmsi': group_time.index.values, 'daily_effort': group_time[:]})
+    mdat = mdat.rename_axis(None)
+    retdat = pd.merge(retdat, mdat, on="mmsi", how='left')
+    
+#------------------------------------------------------------------------------
+
     # Separate Year, month, day, hour, minute, second
     retdat.loc[:, 'timestamp'] = pd.to_datetime(retdat['timestamp'], format="%Y-%m-%d %H:%M:%S UTC")
     retdat.loc[:, 'year'] = pd.DatetimeIndex(retdat['timestamp']).year 

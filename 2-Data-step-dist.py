@@ -6,6 +6,7 @@ import multiprocessing
 from scipy.stats import kurtosis, skew
 
 # Calculate spherical distances between lat/long and populate matrix
+# Returns distance in miles
 def spherical_dist_populate(lat_lis, lon_lis, r=3958.75):
     lat_mtx = np.array([lat_lis]).T * np.pi / 180
     lon_mtx = np.array([lon_lis]).T * np.pi / 180
