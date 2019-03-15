@@ -45,7 +45,7 @@ NUM_CORES = 5
 #----------------------------
 # Functions
 
-def calc_fishing_effect(dat):
+def calc_fishing_effort(dat):
     timedat = dat.sort_values('timestamp')
     t1 = timedat.timestamp.iloc[0]
     t2 = timedat.timestamp.iloc[-1]    
@@ -53,7 +53,7 @@ def calc_fishing_effect(dat):
     t1 = datetime.strptime(t1, "%Y-%m-%d %H:%M:%S UTC")
     t2 = datetime.strptime(t2, "%Y-%m-%d %H:%M:%S UTC")
     tdiff = abs(t2 - t1)
-    tdiff = tdiff.seconds/60/60
+    tdiff = round(tdiff.seconds/60/60, 2)
     return tdiff
 
 def spherical_dist_populate(lat_lis, lon_lis, r=3958.75):
@@ -83,7 +83,7 @@ def stationary_vessel(data):
     dist = spherical_dist_populate([min_d_lat, max_d_lat], [min_d_lon, max_d_lon])
     dist = dist[1,0]
     
-    return dist
+    return round(dist, 2)
 
 def GFW_directories():
     '''Get all GFW_point directions'''
@@ -106,7 +106,7 @@ def data_step(data):
     lat1 = -58
     lat2 = -23
     
-    # (1) Subset out Patagonia Shelf
+    # (1) Subset Patagonia Shelf
     retdat = data[(data['lon'] >= lon1) & (data['lon'] <= lon2) & (data['lat'] >= lat1) & (data['lat'] <= lat2)]
     
     # Get list of all vessels in region
@@ -119,15 +119,21 @@ def data_step(data):
     retdat = retdat[retdat['distance_from_shore_m'] > 0]
     retdat = retdat[retdat['distance_from_port_m'] > 0]
     
-    # (3) Determine distance traveled 
+    # (3) Remove inconsistent tracks due to spoofing or noisy data
+    
+    
+    # (3) Determine max daily distance traveled 
     group_mmsi = retdat.groupby('mmsi').apply(stationary_vessel)
     mdat = pd.DataFrame({'mmsi': group_mmsi.index.values, 'dist_traveled': group_mmsi[:]})
     mdat = mdat.rename_axis(None)
     retdat = pd.merge(retdat, mdat, on="mmsi", how='left')
-        
-    # (4) In/Out of EEZ (country)
     
-    # (5) Calculate daily fishing effort
+    # (4) Determine if stationary where distance_traveled > 0
+    retdat['stationary'] = np.where(retdat['dist_traveled'] > 1, 0, 1)
+        
+    # (5) In/Out of EEZ (country)
+    
+    # (6) Calculate daily fishing effort
     group_time = retdat.groupby('mmsi').apply(calc_fishing_effect)
     mdat = pd.DataFrame({'mmsi': group_time.index.values, 'daily_effort': group_time[:]})
     mdat = mdat.rename_axis(None)
