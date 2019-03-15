@@ -73,17 +73,17 @@ def spherical_dist_populate(lat_lis, lon_lis, r=3958.75):
     mtx = r * np.arccos(cos_lat_d - cos_lat_i*cos_lat_J*(1 - cos_lon_d))
     return mtx
 
-def stationary_vessel(data):
-    data = data.sort_values(['lat', 'lon'])
-    min_d_lat = data.lat.iloc[0]
-    min_d_lon = data.lon.iloc[0]
-    max_d_lat = data.lat.iloc[-1]
-    max_d_lon = data.lon.iloc[-1]
+#def stationary_vessel(data):
+#    data = data.sort_values(['lat', 'lon'])
+#    min_d_lat = data.lat.iloc[0]
+#    min_d_lon = data.lon.iloc[0]
+#    max_d_lat = data.lat.iloc[-1]
+#    max_d_lon = data.lon.iloc[-1]
 
-    dist = spherical_dist_populate([min_d_lat, max_d_lat], [min_d_lon, max_d_lon])
-    dist = dist[1,0]
+#    dist = spherical_dist_populate([min_d_lat, max_d_lat], [min_d_lon, max_d_lon])
+#    dist = dist[1,0]
     
-    return round(dist, 2)
+#    return round(dist, 2)
 
 def GFW_directories():
     '''Get all GFW_point directions'''
@@ -97,6 +97,47 @@ def GFW_directories():
         dirs.remove('identities')
     
     return dirs
+
+def calc_mph(data):
+    # Calculate distance traveled
+    data = data.sort_values('timestamp')
+    fobs_lat = data['lat'].iat[0]
+    fobs_lon = data['lon'].iat[0]
+    lat_lag = data['lat'].shift(1, fill_value=fobs_lat)
+    lon_lag = data['lon'].shift(1, fill_value=fobs_lon)
+    lat = data['lat'].values
+    lon = data['lon'].values
+    outvalues = pd.Series()
+    for i in range(len(data)):
+        lat1 = lat_lag.iat[i]
+        lat2 = lat[i]
+        lon1 = lon_lag.iat[i]
+        lon2 = lon[i]
+        d = pd.Series(round(spherical_dist_populate([lat1, lat2], [lon1, lon2] )[0][1], 2))
+        outvalues = outvalues.append(d, ignore_index=True)
+    data['dist'] = outvalues.values
+    
+    # Calculate speed traveled
+    #data = data.sort_values('timestamp')
+    tlag = data['timestamp'].shift(1, fill_value=data['timestamp'].iat[0])
+    
+    outvalues = pd.Series()
+    for i in range(len(data)):
+        t1 = data.timestamp.iat[i]
+        t2 = tlag.iat[i]   
+          
+        t1 = datetime.strptime(t1, "%Y-%m-%d %H:%M:%S UTC")
+        t2 = datetime.strptime(t2, "%Y-%m-%d %H:%M:%S UTC")
+    
+        tdiff = abs(t2 - t1)
+        tdiff = pd.Series(round(tdiff.seconds/60/60, 4))
+        outvalues = outvalues.append(tdiff)
+    
+    data['travel_time'] = outvalues.values   
+    data['mph'] = data['dist']/data['travel_time'] 
+    data['mph'] = np.where(data['travel_time'] == 0, 0, data['mph'])
+
+    return data
 
 def data_step(data): 
     '''Data step'''
@@ -120,20 +161,45 @@ def data_step(data):
     retdat = retdat[retdat['distance_from_port_m'] > 0]
     
     # (3) Remove inconsistent tracks due to spoofing or noisy data
+    # Results from calc_speed_dist.py
+    #    quant      value
+    #0    0.10   0.000000
+    #1    0.20   0.000000
+    #2    0.30   0.000000
+    #3    0.40   0.000000
+    #4    0.50   0.100000
+    #5    0.60   0.400000
+    #6    0.70   4.900000
+    #7    0.80   9.100000
+    #8    0.90  12.400000
+    #9    0.95  14.400000
+    #10   0.96  15.200000
+    #11   0.97  16.299999
+    #12   0.98  17.700001
+    #13   0.99  19.900000
+        #Max 1.00   
+    
+    MAX_SPEED = 20
+    
+    # Gropuby mmsi and get distance and time between timestamps
+    retdat = retdat.groupby('mmsi').apply(calc_mph).reset_index(drop=True)
+    
+    # Get max speed for each mmsi
+    mmsi_mph = data.groupby('mmsi', as_index=False)['mph'].max()
+
+    # Filter those with speed < 20
+    mmsi_mph2 = mmsi_mph[mmsi_mph['mph'] < max_speed]
+    retdat = retdat[retdat['mmsi'].isin(mmsi_mph2['mmsi'])]
     
     
-    # (3) Determine max daily distance traveled 
-    group_mmsi = retdat.groupby('mmsi').apply(stationary_vessel)
-    mdat = pd.DataFrame({'mmsi': group_mmsi.index.values, 'dist_traveled': group_mmsi[:]})
-    mdat = mdat.rename_axis(None)
-    retdat = pd.merge(retdat, mdat, on="mmsi", how='left')
-    
-    # (4) Determine if stationary where distance_traveled > 0
-    retdat['stationary'] = np.where(retdat['dist_traveled'] > 1, 0, 1)
+    # (4) Determine if stationary where distance_traveled > 1
+    retdat['stationary'] = np.where(retdat['dist'] > 1, 0, 1)
         
-    # (5) In/Out of EEZ (country)
+    # (6) In/Out of EEZ (country)
     
-    # (6) Calculate daily fishing effort
+    # (7) Calculate daily fishing effort
+    #!!!!!!!!!!
+    # Fishing or not to calculate fishing effort
     group_time = retdat.groupby('mmsi').apply(calc_fishing_effect)
     mdat = pd.DataFrame({'mmsi': group_time.index.values, 'daily_effort': group_time[:]})
     mdat = mdat.rename_axis(None)
