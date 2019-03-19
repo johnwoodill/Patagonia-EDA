@@ -107,22 +107,21 @@ def calc_mph(data):
     lon_lag = data['lon'].shift(1, fill_value=fobs_lon)
     lat = data['lat'].values
     lon = data['lon'].values
+    
+    tlag = data['timestamp'].shift(1, fill_value=data['timestamp'].iat[0])
+    
     outvalues = pd.Series()
+    outvalues2 = pd.Series()
     for i in range(len(data)):
+        # Calculate distance
         lat1 = lat_lag.iat[i]
         lat2 = lat[i]
         lon1 = lon_lag.iat[i]
         lon2 = lon[i]
         d = pd.Series(round(spherical_dist_populate([lat1, lat2], [lon1, lon2] )[0][1], 2))
         outvalues = outvalues.append(d, ignore_index=True)
-    data['dist'] = outvalues.values
-    
-    # Calculate speed traveled
-    #data = data.sort_values('timestamp')
-    tlag = data['timestamp'].shift(1, fill_value=data['timestamp'].iat[0])
-    
-    outvalues = pd.Series()
-    for i in range(len(data)):
+        
+        # Calculate travel time
         t1 = data.timestamp.iat[i]
         t2 = tlag.iat[i]   
           
@@ -131,13 +130,36 @@ def calc_mph(data):
     
         tdiff = abs(t2 - t1)
         tdiff = pd.Series(round(tdiff.seconds/60/60, 4))
-        outvalues = outvalues.append(tdiff)
-    
-    data['travel_time'] = outvalues.values   
+        outvalues2 = outvalues2.append(tdiff)
+        
+    data['dist'] = outvalues.values
+    data['travel_time'] = outvalues2.values   
     data['mph'] = data['dist']/data['travel_time'] 
     data['mph'] = np.where(data['travel_time'] == 0, 0, data['mph'])
 
     return data
+    
+    # Calculate speed traveled
+    #data = data.sort_values('timestamp')
+    #tlag = data['timestamp'].shift(1, fill_value=data['timestamp'].iat[0])
+    
+    #outvalues2 = pd.Series()
+    #for i in range(len(data)):
+    #    t1 = data.timestamp.iat[i]
+    #    t2 = tlag.iat[i]   
+          
+    #    t1 = datetime.strptime(t1, "%Y-%m-%d %H:%M:%S UTC")
+    #    t2 = datetime.strptime(t2, "%Y-%m-%d %H:%M:%S UTC")
+    
+    #    tdiff = abs(t2 - t1)
+    #    tdiff = pd.Series(round(tdiff.seconds/60/60, 4))
+    #    outvalues = outvalues.append(tdiff)
+    
+    #data['travel_time'] = outvalues.values   
+    #data['mph'] = data['dist']/data['travel_time'] 
+    #data['mph'] = np.where(data['travel_time'] == 0, 0, data['mph'])
+
+    #return data
 
 def data_step(data): 
     '''Data step'''
@@ -185,13 +207,14 @@ def data_step(data):
     retdat = retdat.groupby('mmsi').apply(calc_mph).reset_index(drop=True)
     
     # Get max speed for each mmsi
-    mmsi_mph = data.groupby('mmsi', as_index=False)['mph'].max()
+    mmsi_mph = retdat.groupby('mmsi', as_index=False)['mph'].max()
 
-    # Filter those with speed < 20
-    mmsi_mph2 = mmsi_mph[mmsi_mph['mph'] < max_speed]
-    retdat = retdat[retdat['mmsi'].isin(mmsi_mph2['mmsi'])]
-    
-    
+    # Keep vessels travel less than 20mph
+    mmsi_mph2 = mmsi_mph[mmsi_mph['mph'] < 40]
+    mmsi_keep = mmsi_mph2['mmsi'].unique()
+    retdat = retdat[retdat['mmsi'].isin(mmsi_keep)]
+
+  
     # (4) Determine if stationary where distance_traveled > 1
     retdat['stationary'] = np.where(retdat['dist'] > 1, 0, 1)
         
@@ -200,7 +223,7 @@ def data_step(data):
     # (7) Calculate daily fishing effort
     #!!!!!!!!!!
     # Fishing or not to calculate fishing effort
-    group_time = retdat.groupby('mmsi').apply(calc_fishing_effect)
+    group_time = retdat.groupby('mmsi').apply(calc_fishing_effort)
     mdat = pd.DataFrame({'mmsi': group_time.index.values, 'daily_effort': group_time[:]})
     mdat = mdat.rename_axis(None)
     retdat = pd.merge(retdat, mdat, on="mmsi", how='left')
@@ -221,6 +244,7 @@ def data_step(data):
     
     # Organize columns
     retdat = retdat[['timestamp', 'year', 'month', 'day', 'hour', 'minute', 'second', 'mmsi', 'lat', 'lon', \
+                     'mph', 'dist', 'travel_time', \
                     'segment_id', 'message_id', 'type', 'speed', 'course', 'heading', 'shipname', 'callsign', \
                      'destination', 'elevation_m', 'distance_from_shore_m', 'distance_from_port_m', 'nnet_score', \
                      'logistic_score', 'flag', 'geartype', 'length', 'tonnage', 'engine_power', 'active_2012', \
@@ -258,6 +282,7 @@ def processGFW(i):
         outdat.to_csv('~/Data/GFW_point/Patagonia_Shelf/csv/' + filename + '.csv', index=False)
         outdat.to_feather('~/Data/GFW_point/Patagonia_Shelf/feather/' + filename + '.feather')
         gc.collect()
+        print(i)
         return 0
     else:
         print("Error: " + subdir + " folder does not exist.")
@@ -267,7 +292,7 @@ def processGFW(i):
 # Main function
 if __name__ == '__main__':
 
-    gfw_list_dirs = sorted(GFW_directories())
+    gfw_list_dirs = sorted(GFW_directories())[0:367]
 
     # Check for missing files
     # Get csv files from output
@@ -277,7 +302,7 @@ if __name__ == '__main__':
 
     # Get feather files
     feather_files = glob.glob(GFW_OUT_DIR_CSV + "*.csv")
-    feather_files = [item.replace('/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/csv/', '') for item in feather_files]
+    feather_files = [item.replace('/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/feather/', '') for item in feather_files]
     feather_files = [item.replace('.csv', '') for item in feather_files]
 
     # Compare csv and feather for differences
