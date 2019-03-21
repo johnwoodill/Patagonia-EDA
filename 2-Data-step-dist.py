@@ -33,15 +33,15 @@ def mp_gfw_dist(data_loc):
     outdat = indat
     
     # Average lat/long
-    outdat['lat_avg'] = outdat.groupby('mmsi').lat.transform('mean')
-    outdat['lon_avg'] = outdat.groupby('mmsi').lon.transform('mean')
-    outdat = outdat.groupby('mmsi').first().reset_index()
+    #outdat['lat_avg'] = outdat.groupby('mmsi').lat.transform('mean')
+    #outdat['lon_avg'] = outdat.groupby('mmsi').lon.transform('mean')
+    #outdat = outdat.groupby('mmsi').first().reset_index()
 
     # (4) Determine if stationary where distance_traveled > 1
     outdat['stationary'] = np.where(outdat['dist'] > 1, 0, 1)
 
     # Organize data
-    outdat = outdat[['timestamp', 'year', 'month', 'day', 'mmsi', 'lat_avg', 'lon_avg', \
+    outdat = outdat[['timestamp', 'year', 'month', 'day', 'mmsi', 'lat', 'lon', \
                      'segment_id', 'message_id', 'type', 'speed', 'mph', 'dist', 'travel_time', 'stationary', \
                      'course', 'heading', 'shipname', 'callsign', \
                      'destination', 'elevation_m', 'distance_from_shore_m', 'distance_from_port_m', 'nnet_score', \
@@ -52,7 +52,7 @@ def mp_gfw_dist(data_loc):
     date = f"{outdat['year'][1]}-" + f"{outdat['month'][1]}".zfill(2) + f"-" + f"{outdat['day'][1]}".zfill(2)
 
     # Get avg lat/lon per mmsi
-    posdat = outdat[['mmsi', 'lat_avg', 'lon_avg']]
+    posdat = outdat[['mmsi', 'lat', 'lon']]
     posdat = posdat.groupby('mmsi', as_index=False).mean()
     posdat = posdat.sort_values('mmsi')
 
