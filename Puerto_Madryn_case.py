@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 #import glob
 %matplotlib inline
 import cartopy.crs as ccrs
+import cartopy.io.img_tiles as cimgt
+import cartopy
 
 def spherical_dist_populate(data=None, lat_lis=None, lon_lis=None, r=3958.75):
     
@@ -229,9 +231,9 @@ lat2 = -35
 
 #gdat = mdat[mdat['vessel_B'].isin(vessel_b)]
 
-#gdat = mdat[mdat['timestamp'] == "2016-03-10 13:00:00"]
-
-gdat = mdat
+gdat = mdat[mdat['timestamp'] == "2016-03-10 13:00:00"]
+gdat = gdat[gdat['rank']  <= 5]
+#gdat = mdat
 
 for mmsi, group in gdat.groupby('timestamp'):
     #lon = group.vessel_A_lon.values[1]
@@ -248,14 +250,23 @@ for mmsi, group in gdat.groupby('timestamp'):
     lat2 = -35
     
     my_dpi=96
+    
+    #request = cimgt.GoogleTiles()
+    #fig, ax = make_map(projection=request.crs)
+    
     fig = plt.figure(figsize=(2600/my_dpi, 1800/my_dpi), dpi=my_dpi)
-    ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.stock_img()
+    ax = plt.axes(projection=cimgt.StamenTerrain().crs)
+    #ax.stock_img()
     #ax.add_feature(cfeature.LAND)
     #ax.add_feature(cfeature.COASTLINE)
+    # add some features to make the map a little more polished
+    ax.set_extent([lon1, lon2, lat1, lat2], crs=cimgt.StamenTerrain().crs)
+    ax.add_feature(cartopy.feature.LAND)
+    ax.add_feature(cartopy.feature.OCEAN)
+    ax.coastlines('50m')
     #ax.add_feature(states_provinces, edgecolor='gray')
-    ax.set_extent([lon1, lon2, lat1, lat2], crs=ccrs.PlateCarree())
-    ax.coastlines()
+    #cimgt.StamenTerrain().crs 
+    #ax.coastlines()
     #ax.stock_img()
 
     VA_x = group.vessel_A_lon.values
@@ -264,26 +275,49 @@ for mmsi, group in gdat.groupby('timestamp'):
     VB_x = group.vessel_B_lon.values
     VB_y = group.vessel_B_lat.values
     
-    ax.plot(VB_x, VB_y, 'o', markersize=2, color = 'red', label=mmsi, transform=ccrs.PlateCarree())
-    #ax.plot([VB_x, VA_x], [VB_y,  VA_y], marker = 'o', linewidth=1, markersize=2, color = 'black', label=mmsi, transform=ccrs.PlateCarree())
-    #ax.plot(VA_x, VA_y, 'o', markersize=2, color = 'red', label=mmsi, transform=ccrs.PlateCarree())
-    plt.annotate(f"Timestamp: {group['timestamp'].iat[0]}", xy=(0.22, .85), xycoords='figure fraction', fontsize=20, color='blue')
+    # All ships
+    #ax.plot(VB_x, VB_y, 'o', markersize=2, color = 'red', label=mmsi, transform=ccrs.PlateCarree())
+    
+    # Connected ships
+    ax.plot([VB_x, VA_x], [VB_y,  VA_y], marker = 'o', linewidth=1, markersize=2, color = 'black', label=mmsi, transform=ccrs.PlateCarree())
+    ax.plot(VA_x, VA_y, 'o', markersize=2, color = 'red', label=mmsi, transform=ccrs.PlateCarree())
+    
+    # Plot timestamp
+    ax.annotate(f"Timestamp: {group['timestamp'].iat[0]}", xy=(0.22, .85), xycoords='figure fraction', fontsize=20, color='blue')
     #plt.annotate(f"MMSI: {group['vessel_A'].iat[0]}", xy=(0.7, .1), xycoords='figure fraction', fontsize=20, color='blue') 
     filepath = f"/home/server/pi/homes/woodilla/Projects/Patagonia-EDA/figures/{group['timestamp'].iat[0]}.jpg"
     
-    plt.savefig(filepath, dpi=300)
+    #plt.savefig(filepath, dpi=300)
 
-    
-    
-    
-#tdat = mdat[mdat['timestamp'] == "2016-03-10 00:00:00"]
-for mmsi, track in test.groupby('vessel_A'):
+lon1 = -165
+lon2 = 180
+lat1 = -70
+lat2 = 75
+                 
+import matplotlib.pyplot as plt
+from matplotlib.transforms import offset_copy
 
-    x = track.vessel_A_lon.values
-    y = track.vessel_A_lat.values
-    
-    ax.plot(x, y, label=mmsi, transform=ccrs.PlateCarree())
-    ax.plot(x, y, 'o', markersize=1, color = 'black', label=mmsi, transform=ccrs.PlateCarree())
-ax.plot(-25.463418, -24.623938, 'o', markersize=10, color = 'red', transform=ccrs.PlateCarree())
-ax.plot(pdat['lon'], pdat['lat'], label=mmsi, transform=ccrs.PlateCarree())
-ax.plot(pdat['lon'], pdat['lat'], 'o', markersize=1, color = 'red', label=mmsi, transform=ccrs.PlateCarree())
+import cartopy.crs as ccrs
+import cartopy.io.img_tiles as cimgt
+
+stamen_terrain = cimgt.StamenTerrain()
+
+    # Create a GeoAxes in the tile's projection.
+ax = plt.axes(projection=stamen_terrain.crs)
+
+    # Limit the extent of the map to a small longitude/latitude range.
+ax.set_extent([lon1, lon2, lat1, lat2])
+
+    # Add the Stamen data at zoom level 8.
+ax.add_image(stamen_terrain, 8)
+                
+ax.plot(gdat['vessel_A_lon'], gdat['vessel_A_lat'], 'o', markersize=2, color = 'red', label=mmsi, transform=ccrs.PlateCarree())                
+#geodetic_transform = ccrs.Geodetic()._as_mpl_transform(ax)
+#text_transform = offset_copy(geodetic_transform, units='dots', x=-25)
+
+    # Add text 25 pixels to the left of the volcano.
+#plt.text(-19.613333, 63.62, u'Eyjafjallajökull',
+#             verticalalignment='center', horizontalalignment='right',
+#             transform=text_transform,
+#             bbox=dict(facecolor='sandybrown', alpha=0.5, boxstyle='round'))
+plt.show()
