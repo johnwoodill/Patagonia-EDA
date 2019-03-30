@@ -76,7 +76,7 @@ def spherical_dist_populate(data=None, lat_lis=None, lon_lis=None, r=3958.75):
     
     return odat
 
-def interp_hr(data):
+def interp_hr(data, start, end):
     
     indat = data
     # Sort data by timestamp
@@ -88,9 +88,7 @@ def interp_hr(data):
     #start = pd.Timestamp(data['timestamp'].iat[0]).strftime('%m-%d-%Y 00:00')
     #end = pd.Timestamp(data['timestamp'].iat[-1]).strftime('%m-%d-%Y  23:59')
     
-    start = pd.Timestamp("03-10-2016 00:00")
-    end = pd.Timestamp("03-20-2016 23:59")
-    
+   
     #start = pd.Timestamp(f"{}")
     
     # Merge and interpolate between start and end
@@ -111,7 +109,7 @@ def interp_hr(data):
     return pdat
 
 
-def calc_dist(data):
+def calc_dist(data, start, end):
     
     #indat = pd.read_feather(data_loc)
     indat = data
@@ -132,7 +130,7 @@ def calc_dist(data):
 
     print(f"{datetime.datetime.now()}: Interpolating by MMSI [2/4]")
     # Group by mmis and interpolate to hour
-    outdat = indat.groupby('mmsi', as_index=False).apply(interp_hr)
+    outdat = indat.groupby('mmsi', as_index=False).apply(interp_hr, start, end)
 
     print(f"{datetime.datetime.now()}: Calculating NN [3/4]")
     # Calc dist.
@@ -145,19 +143,35 @@ if __name__ == "__main__":
     files = glob.glob("/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/feather" + "/*.feather")
 
     nfiles = sorted(files)
-    nfiles = nfiles[68:79]
-    
+    nfiles = nfiles[59:90]
+    nfiles
+
     print(f"{datetime.datetime.now()}: Binding data [1/4]")
     list_ = []
     for file in nfiles:
         df = pd.read_feather(file)
         list_.append(df)
         mdat = pd.concat(list_)
-        
-
-    df = calc_dist(mdat)    
+    
+      
+    #start = pd.Timestamp("03-10-2016 00:00")
+    #end = pd.Timestamp("03-20-2016 23:59")
+    
+    start_year = min(pd.DatetimeIndex(mdat['timestamp']).year)
+    end_year = max(pd.DatetimeIndex(mdat['timestamp']).year)
+    
+    start_month = min(pd.DatetimeIndex(mdat['timestamp']).month)
+    end_month = max(pd.DatetimeIndex(mdat['timestamp']).month)
+    
+    start_day = min(pd.DatetimeIndex(mdat['timestamp']).day)
+    end_day = max(pd.DatetimeIndex(mdat['timestamp']).day)
+    
+    start = pd.Timestamp(f"{start_year} - {start_month} - {start_day} 00:00")
+    end = pd.Timestamp(f"{end_year} - {end_month} - {end_day} 23:59")
+    
+    df = calc_dist(mdat, start=start, end=end)
     
     #print(mdat)
     print(f"{datetime.datetime.now()}: Saving [4/4]")
     df = df.reset_index(drop=True)
-    df.to_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_2016-03-10_2016-03-20.feather')
+    df.to_feather(f"~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_{start_year}-{start_month}-{start_day}_{end_year}-{end_month}-{end_day}.feather")
