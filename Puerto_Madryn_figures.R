@@ -231,8 +231,8 @@ plot_grid(p1, p2, p3, p4, ncol=2)
     theme_tufte(11) +
     xlab(NULL) +
     ylab("Cluster") +
-    annotate("text", x=5.5, y=3, label = "Daily", size=2.5) +
-    annotate("text", x=5.5, y=2.8, label = "NN=1", size=2.5) +
+    annotate("text", x=5.5, y=2.8, label = "Daily", size=2.5) +
+    annotate("text", x=5.5, y=2.6, label = "NN=1", size=2.5) +
     scale_y_continuous(breaks = seq(1, length(unique(meddat1$group)))) +
     scale_x_continuous(breaks = (meddat1$value))
   p1
@@ -244,8 +244,8 @@ plot_grid(p1, p2, p3, p4, ncol=2)
     theme_tufte(11) +
     xlab(NULL) +
     ylab("Cluster") +
-    annotate("text", x=5.5, y=3, label = "Daily", size=2.5) +
-    annotate("text", x=5.5, y=2.8, label = "NN=5", size=2.5) +
+    annotate("text", x=5.5, y=2.8, label = "Daily", size=2.5) +
+    annotate("text", x=5.5, y=2.6, label = "NN=5", size=2.5) +
     scale_y_continuous(breaks = seq(1, length(unique(meddat1$group)))) +
     scale_x_continuous(breaks = (meddat1$value))
   p2
@@ -259,8 +259,8 @@ plot_grid(p1, p2, p3, p4, ncol=2)
     theme_tufte(11) +
     xlab("March") +
     ylab("Cluster") +
-    annotate("text", x=12, y=3, label = "Hourly", size=2.5) +
-    annotate("text", x=12, y=2.8, label = "NN=1", size=2.5) +
+    annotate("text", x=12, y=2.8, label = "Hourly", size=2.5) +
+    annotate("text", x=12, y=2.6, label = "NN=1", size=2.5) +
     scale_x_continuous(breaks = seq(0, 21*24, 24),
                        labels = seq(5, 26, 1)) +
     scale_y_continuous(breaks = seq(1, length(unique(meddat2$group)), 1))
@@ -273,8 +273,8 @@ plot_grid(p1, p2, p3, p4, ncol=2)
     theme_tufte(11) +
     xlab("March") +
     ylab("Cluster") +
-    annotate("text", x=12, y=3, label = "Hourly", size=2.5) +
-    annotate("text", x=12, y=2.8, label = "NN=5", size=2.5) +
+    annotate("text", x=12, y=2.8, label = "Hourly", size=2.5) +
+    annotate("text", x=12, y=2.6, label = "NN=5", size=2.5) +
     scale_x_continuous(breaks = seq(0, 21*24, 24),
                        labels = seq(5, 26, 1)) +
     scale_y_continuous(breaks = seq(1, length(unique(meddat2$group)), 1))
@@ -282,7 +282,87 @@ plot_grid(p1, p2, p3, p4, ncol=2)
   plot_grid(p3, p4)
   
   plot_grid(p1, p2, p3, p4, ncol=2)
-  sggsave("~/Projects/Patagonia-EDA/figures/clustering_results_March05-25.pdf", width=6, height=4)
+  ggsave("~/Projects/Patagonia-EDA/figures/clustering_results_March05-25.pdf", width=6, height=4)
+  plot_grid(p1, p2, p3, p4, ncol=2)
+}
+
+# Clustering March1-31
+{
+  # Medoids data outcomes
+  meddat1 <- as.data.frame(read_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_NN1_3-01-2016-3-31-2016.feather'))
+  meddat2 <- as.data.frame(read_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_NN5_3-01-2016-3-31-2016.feather'))
+  meddat3 <- as.data.frame(read_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_hour_NN1_3-01-2016-3-31-2016.feather'))
+  meddat4 <- as.data.frame(read_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_hour_NN5_3-01-2016-3-31-2016.feather'))
+  meddat1$group <- meddat1$group + 1
+  meddat2$group <- meddat2$group + 1
+  meddat3$group <- meddat3$group + 1
+  meddat4$group <- meddat4$group + 1
+  
+  meddat1$value <- meddat1$value + 1
+  meddat2$value <- meddat2$value + 1
+  meddat3$value <- meddat3$value + 1
+  meddat4$value <- meddat4$value + 1
+  
+  p1 <- ggplot(meddat1, aes(x=value, y=group)) +
+    geom_point(size=.5) + 
+    annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, color = "grey") +
+    annotate("segment", x=-Inf, xend=-Inf, y=-Inf, yend=Inf, color = "grey") +
+    geom_vline(xintercept = 15, color='red') +
+    theme_tufte(11) +
+    xlab(NULL) +
+    ylab("Cluster") +
+    annotate("text", x=1.5, y=3, label = "Daily", size=2.5) +
+    annotate("text", x=1.5, y=2.8, label = "NN=1", size=2.5) +
+    scale_y_continuous(breaks = seq(1, length(unique(meddat1$group)))) +
+    scale_x_continuous(breaks = (meddat1$value))
+  p1
+  p2 <- ggplot(meddat2, aes(x=value, y=group)) +
+    geom_point(size=.5) + 
+    annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, color = "grey") +
+    annotate("segment", x=-Inf, xend=-Inf, y=-Inf, yend=Inf, color = "grey") +
+    geom_vline(xintercept = 15, color='red') +
+    theme_tufte(11) +
+    xlab(NULL) +
+    ylab("Cluster") +
+    annotate("text", x=1.5, y=3, label = "Daily", size=2.5) +
+    annotate("text", x=1.5, y=2.8, label = "NN=5", size=2.5) +
+    scale_y_continuous(breaks = seq(1, length(unique(meddat1$group)))) +
+    scale_x_continuous(breaks = (meddat1$value))
+  p2
+  plot_grid(p1, p2, ncol=2)
+  
+  p3 <- ggplot(meddat3, aes(x=value, y=group)) +
+    geom_point(size=.5) + 
+    annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, color = "grey") +
+    annotate("segment", x=-Inf, xend=-Inf, y=-Inf, yend=Inf, color = "grey") +
+    geom_vline(xintercept = 360, color='red') +
+    theme_tufte(11) +
+    xlab("March") +
+    ylab("Cluster") +
+    annotate("text", x=12, y=3, label = "Hourly", size=2.5) +
+    annotate("text", x=12, y=2.8, label = "NN=1", size=2.5) +
+    scale_x_continuous(breaks = seq(0, 30*24, 24),
+                       labels = seq(1, 31, 1)) +
+    scale_y_continuous(breaks = seq(1, length(unique(meddat2$group)), 1))
+  p3
+  p4 <- ggplot(meddat4, aes(x=value, y=group)) +
+    geom_point(size=.5) + 
+    annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, color = "grey") +
+    annotate("segment", x=-Inf, xend=-Inf, y=-Inf, yend=Inf, color = "grey") +
+    geom_vline(xintercept = 360, color='red') +
+    theme_tufte(11) +
+    xlab("March") +
+    ylab("Cluster") +
+    annotate("text", x=12, y=3, label = "Hourly", size=2.5) +
+    annotate("text", x=12, y=2.8, label = "NN=5", size=2.5) +
+    scale_x_continuous(breaks = seq(0, 30*24, 24),
+                       labels = seq(1, 31, 1)) +
+    scale_y_continuous(breaks = seq(1, length(unique(meddat2$group)), 1))
+  p4
+  
+  plot_grid(p1, p2, p3, p4, ncol=2)
+  ggsave("~/Projects/Patagonia-EDA/figures/clustering_results_March01-31.pdf", width=6, height=4)
+  plot_grid(p1, p2, p3, p4, ncol=2)
 }
 
 

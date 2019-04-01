@@ -15,80 +15,38 @@ from pyclustering.utils import timedcall
 from scipy.cluster.hierarchy import dendrogram, linkage
 import scipy.spatial.distance as ssd
 
+
+def f_js(x, y):
+    return distance.jensenshannon(x, y)
+
 def d_matrix(dat, interval, NN=1):
     dat = dat[dat['rank'] <= NN]
     dat['distance'] = np.log(1 + dat['distance'])
 
-    
-    # Calc PDF for each day (don't need)
     dat.loc[:, 'day'] = pd.DatetimeIndex(dat['timestamp']).day
     dat.loc[:, 'hour'] = pd.DatetimeIndex(dat['timestamp']).hour
 
-    
-    min_day = min(dat['day'])
-    max_day = max(dat['day'])
-    min_hour = min(dat['hour'])
-    max_hour = max(dat['hour'])
-    
-
-    #nobs_day = dat.groupby('day').agg('count')
-    #nobs_day = min(nobs_day['timestamp'])
-    
-    #nobs_hour = dat.groupby(['day', 'hour']).agg('count')
-    #nobs_hour = min(nobs_hour['timestamp'])
-    
     if interval == 'day':
-        # Apply JS-dist to each permutation of days
-        jds_dmat = pd.DataFrame()
-        for i in range(min_day, max_day + 1):
-            for j in range(min_day, max_day + 1):
-                x = dat[dat['day'] == i].distance
-                y = dat[dat['day'] == j].distance
-                jds = distance.jensenshannon(x, y)
-                outdat = pd.DataFrame({'day_a': [i], 'day_b': [j], 'jds': [round(jds, 4)]})
-                jds_dmat = jds_dmat.append(outdat, ignore_index=True)
-        # Generate distance matrix
-        distMatrix = jds_dmat.pivot(index='day_a', columns='day_b', values='jds')
+        x = []
+        g = dat.groupby(['day'])['distance']
+        for k1, g1 in g:
+            for k2, g2 in g:
+                x += [(k1, k2, f_js(g1, g2))]
+
+        distMatrix = pd.DataFrame(x).pivot(index=0, columns=1, values=2)
         distArray = ssd.squareform(distMatrix)
     
-    indat = dat
     if interval == 'dayhour':
-        #vessels = dat['vessel_A'].unique()
-        #vessels = np.random.choice(vessels, 45)
-        #indat = dat[dat['vessel_A'].isin(vessels)]
-        # Apply JS-dist to each permutation of days
-        jds_dmat = pd.DataFrame()
-        for k in range(min_day, max_day + 1):
-            for l in range(min_day, max_day + 1):
-                for i in range(min_hour, max_hour + 1):
-                    for j in range(min_hour, max_hour + 1):
-                        x = indat[(indat['hour'] == i) & (indat['day'] == k)].distance
-                        y = indat[(indat['hour'] == j) & (indat['day'] == l)].distance
-                        jds = distance.jensenshannon(x, y)
-                        
-# outmat = [distance.jensenshannon(x, y) 
-#     for x in indat[(['hour'] == i) & (indat['day'] == k)].distance 
-#     for i in range(min_hour, max_hour + 1) 
-#     for k in range(min_day, max_day + 1) 
-#     for y in indat[(indat['hour'] == j) &(indat['day'] == l)].distance 
-#     for j in range(min_hour, max_hour + 1) 
-#     for l in range(min_day, max_day + 1)
-          
-                        outdat = pd.DataFrame({'day_hour_a': f"{k}_{i}", 'day_hour_b': f"{l}_{j}", 'jds': [round(jds, 4)]})
-                        jds_dmat = jds_dmat.append(outdat, ignore_index=True)
-                    # Generate distance matrix
-        distMatrix = jds_dmat.pivot(index='day_hour_a', columns='day_hour_b', values='jds')
+        x = []
+        g = dat.groupby(['day', 'hour'])['distance']
+        for k1, g1 in g:
+            for k2, g2 in g:
+                x += [(k1, k2, f_js(g1, g2))]
+
+        distMatrix = pd.DataFrame(x).pivot(index=0, columns=1, values=2)
         distArray = ssd.squareform(distMatrix)
-    
+
     return (distMatrix, distArray)
-
-#jds_dmat    
-#jds_dmat.to_feather('~/js_dmat.feather')
-#jds_dmat = pd.read_feather('~/js_dmat.feather')
-
-# Cluster across x, y
-
-
 
 
 # H-Clustering
@@ -149,79 +107,36 @@ def k_medoids(distMatrix, interval, init_medoids):
 
 # Puerto Madryn March 10-20
 # Import data
-#dat = pd.read_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_2016-03-10_2016-03-20.feather')
+dat = pd.read_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region1_2016-03-10_2016-03-20.feather')
 
 # # Day
-#distMatrix, distArray = d_matrix(dat, interval='day', NN=1)
-#pdat1 = k_medoids(distMatrix, interval='day', init_medoids=[2, 5, 8])
-# h_cluster(distArray)
-# pdat1.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_NN1_3-10-2016-3-20-2016.feather')
-
-# distMatrix, distArray = d_matrix(dat, interval='day', NN=5)
-# pdat2 = k_medoids(distMatrix, interval='day', init_medoids=[2, 5, 8])
-# h_cluster(distArray)
-# pdat2.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_NN5_3-10-2016-3-20-2016.feather')
-
-# # Day by hour
-# distMatrix_dh, distArray_dh = d_matrix(dat, interval='dayhour', NN=1) 
-# pdat3 = k_medoids(distMatrix_dh, interval='dayhour', init_medoids=[30, 90, 140])
-# pdat3.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_hour_NN1_3-10-2016-3-20-2016.feather')
-
-# distMatrix_dh, distArray_dh = d_matrix(dat, interval='dayhour', NN=5) 
-# pdat4 = k_medoids(distMatrix_dh, interval='dayhour', init_medoids=[30, 90, 140])
-# pdat4.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_hour_NN5_3-10-2016-3-20-2016.feather')
-
-
-# Puerto Madryn March 5-25
-# Import data
-print("Loading 3-5-2016 Data")
-dat = pd.read_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_2016-3-5_2016-3-25.feather')
-
-# # Day
-# distMatrix, distArray = d_matrix(dat, interval='day', NN=1)
-# pdat5 = k_medoids(distMatrix, interval='day', init_medoids=[5, 12, 17])
-# pdat5.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_NN1_3-05-2016-3-25-2016.feather')
-
-# # Day
-# distMatrix, distArray = d_matrix(dat, interval='day', NN=5)
-# pdat6 = k_medoids(distMatrix, interval='day', init_medoids=[5, 12, 17])
-# pdat6.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_NN5_3-05-2016-3-25-2016.feather')
-
-# # Day by hour
-# distMatrix_dh, distArray_dh = d_matrix(dat, interval='dayhour', NN=1) 
-# pdat7 = k_medoids(distMatrix_dh, interval='dayhour', init_medoids=[80, 264, 400])
-# pdat7.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_hour_NN1_3-05-2016-3-25-2016.feather')
-
-print('Processing dayhour 3-5-2016 NN=5')
-distMatrix_dh, distArray_dh = d_matrix(dat, interval='dayhour', NN=5) 
-pdat8 = k_medoids(distMatrix_dh, interval='dayhour', init_medoids=[80, 264, 400])
-pdat8.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_hour_NN5_3-05-2016-3-25-2016.feather')
-
-
-
-# Puerto Madryn March 1-31
-# Import data
-dat = pd.read_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_2016-3-1_2016-3-31.feather')
-
-# Day
-print('Processing day 3-1-2016 NN=1')
 distMatrix, distArray = d_matrix(dat, interval='day', NN=1)
-pdat5 = k_medoids(distMatrix, interval='day', init_medoids=[8, 15, 23])
-pdat5.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_NN1_3-01-2016-3-31-2016.feather')
+pdat1 = k_medoids(distMatrix, interval='day', init_medoids=[2, 5, 8])
+# h_cluster(distArray)
+distMatrix = distMatrix.reset_index(drop=False)
+distMatrix.columns = distMatrix.columns.astype(str)
+distMatrix.to_feather('~/Data/GFW_point/Patagonia_Shelf/Puerto_Madryn/dist_matrices/dmat_Puerto_Madryn_region1_NN1_day_2016-03-10_2016-03-20.feather')
+pdat1.to_feather('~/Projects/Patagonia-EDA/data/Puerto_Madryn_region1_NN1_k_medoids_day_2016-03-10_2016-03-20.feather')
 
-# Day
-print('Processing day 3-1-2016 NN=5')
 distMatrix, distArray = d_matrix(dat, interval='day', NN=5)
-pdat6 = k_medoids(distMatrix, interval='day', init_medoids=[8, 15, 23])
-pdat6.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_NN5_3-01-2016-3-31-2016.feather')
+pdat2 = k_medoids(distMatrix, interval='day', init_medoids=[2, 5, 8])
+distMatrix = distMatrix.reset_index(drop=False)
+distMatrix.columns = distMatrix.columns.astype(str)
+#h_cluster(distArray)
+distMatrix.to_feather('~/Data/GFW_point/Patagonia_Shelf/Puerto_Madryn/dist_matrices/dmat_Puerto_Madryn_region1_NN5_day_2016-03-10_2016-03-20.feather')
+pdat2.to_feather('~/Projects/Patagonia-EDA/data/Puerto_Madryn_region1_NN5_k_medoids_day_2016-03-10_2016-03-20.feather')
 
-# Day by hour
-print('Processing dayhour 3-1-2016 NN=1')
+# # Day by hour
 distMatrix_dh, distArray_dh = d_matrix(dat, interval='dayhour', NN=1) 
-pdat7 = k_medoids(distMatrix_dh, interval='dayhour', init_medoids=[192, 360, 504])
-pdat7.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_hour_NN1_3-01-2016-3-31-2016.feather')
+pdat3 = k_medoids(distMatrix_dh, interval='dayhour', init_medoids=[30, 90, 140])
+distMatrix = distMatrix.reset_index(drop=False)
+distMatrix.columns = distMatrix.columns.astype(str)
+distMatrix.to_feather('~/Data/GFW_point/Patagonia_Shelf/Puerto_Madryn/dist_matrices/dmat_Puerto_Madryn_region1_NN1_day-hour_2016-03-10_2016-03-20.feather')
+pdat3.to_feather('~/Projects/Patagonia-EDA/data/Puerto_Madryn_region1_NN1_k_medoids_dayhour_2016-03-10_2016-03-20.feather')
 
-print('Processing dayhour 3-1-2016 NN=5')
 distMatrix_dh, distArray_dh = d_matrix(dat, interval='dayhour', NN=5) 
-pdat8 = k_medoids(distMatrix_dh, interval='dayhour', init_medoids=[192, 360, 504])
-pdat8.to_feather('~/Projects/Patagonia-EDA/data/k_medoids_day_hour_NN5_3-01-2016-3-31-2016.feather')
+pdat4 = k_medoids(distMatrix_dh, interval='dayhour', init_medoids=[30, 90, 140])
+distMatrix = distMatrix.reset_index(drop=False)
+distMatrix.columns = distMatrix.columns.astype(str)
+distMatrix.to_feather('~/Data/GFW_point/Patagonia_Shelf/Puerto_Madryn/dist_matrices/dmat_Puerto_Madryn_region1_NN5_day-hour_2016-03-10_2016-03-20.feather')
+pdat4.to_feather('~/Projects/Patagonia-EDA/data/Puerto_Madryn_region1_NN5_k_medoids_dayhour_2016-03-10_2016-03-20.feather')

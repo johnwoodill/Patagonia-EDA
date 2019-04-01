@@ -84,13 +84,6 @@ def interp_hr(data, start, end):
     data['timestamp'] = data['timestamp'].dt.round('min')
     data = data.groupby('timestamp', as_index=False)[['lat', 'lon']].agg('mean')
     
-    # Begin and end date data frame
-    #start = pd.Timestamp(data['timestamp'].iat[0]).strftime('%m-%d-%Y 00:00')
-    #end = pd.Timestamp(data['timestamp'].iat[-1]).strftime('%m-%d-%Y  23:59')
-    
-   
-    #start = pd.Timestamp(f"{}")
-    
     # Merge and interpolate between start and end
     pdat = pd.DataFrame({'timestamp': pd.date_range(start=start, end=end, freq='min')})
     
@@ -109,22 +102,10 @@ def interp_hr(data, start, end):
     return pdat
 
 
-def calc_dist(data, start, end):
+def calc_dist(data, start, end, lon1, lon2, lat1, lat2):
     
-    #indat = pd.read_feather(data_loc)
     indat = data
-    #indat = indat.sort_values('mmsi')
-    
-#     # Puerto Mardryn Area
-#     lon1 = -62.9
-#     lon2 = -54.4
-#     lat1 = -45
-#     lat2 = -40
-    
-    lon1 = -62.925222
-    lon2 = -54.418267
-    lat1 = -45
-    lat2 = -40
+
     indat = indat[(indat['lon'] >= lon1) & (indat['lon'] <= lon2)] 
     indat = indat[(indat['lat'] >= lat1) & (indat['lat'] <= lat2)]
 
@@ -143,7 +124,7 @@ if __name__ == "__main__":
     files = glob.glob("/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/feather" + "/*.feather")
 
     nfiles = sorted(files)
-    nfiles = nfiles[59:90]
+    nfiles = nfiles[68:79]
     nfiles
 
     print(f"{datetime.datetime.now()}: Binding data [1/4]")
@@ -169,9 +150,37 @@ if __name__ == "__main__":
     start = pd.Timestamp(f"{start_year} - {start_month} - {start_day} 00:00")
     end = pd.Timestamp(f"{end_year} - {end_month} - {end_day} 23:59")
     
-    df = calc_dist(mdat, start=start, end=end)
+    # Puerto Mardryn Area
+    #region = 1
+    # lon1 = -62.925222
+    # lon2 = -54.418267
+    # lat1 = -45
+    # lat2 = -40
+
+    # Puerto Mardryn Area #2
+#     region = 2
+#     lon1 = -62.925222 - 1
+#     lon2 = -54.418267 + 1
+#     lat1 = -45 - 1
+#     lat2 = -40 + 1
+
+    # Puerto Mardryn Area #3
+    region = 3
+    lon1 = -62.925222 - 2
+    lon2 = -54.418267 + 2
+    lat1 = -45 - 2
+    lat2 = -40 + 2
+    
+    df = calc_dist(mdat, start=start, end=end, lon1=lon1, lon2=lon2, lat1=lat1, lat2=lat2)
     
     #print(mdat)
-    print(f"{datetime.datetime.now()}: Saving [4/4]")
+    print(f"{datetime.datetime.now()}: Saving: ~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region{region}_{start_year}-{start_month}-{start_day}_{end_year}-{end_month}-{end_day}.feather [4/4]")
     df = df.reset_index(drop=True)
-    df.to_feather(f"~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_{start_year}-{start_month}-{start_day}_{end_year}-{end_month}-{end_day}.feather")
+    df.to_feather(f"~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region{region}_{start_year}-{start_month}-{start_day}_{end_year}-{end_month}-{end_day}.feather")
+    
+    
+    
+    
+    
+import pandas as pd
+dat = pd.DataFrame({'day': {0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 2, 11: 2, 12: 2, 13: 2, 14: 2, 15: 2, 16: 2, 17: 2, 18: 2, 19: 2}, 'hour': {0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 2, 6: 2, 7: 2, 8: 2, 9: 2, 10: 1, 11: 1, 12: 1, 13: 1, 14: 1, 15: 2, 16: 2, 17: 2, 18: 2, 19: 2}, 'distance': {0: 1.2898851269657656, 1: 0.0, 2: 0.8371526423804061, 3: 0.8703856587273138, 4: 0.6257425922449789, 5: 0.0, 6: 0.0, 7: 0.0, 8: 1.2895328696587023, 9: 0.0, 10: 0.6875527848294374, 11: 0.0, 12: 0.0, 13: 0.9009031833559706, 14: 0.0, 15: 1.1040652963428623, 16: 0.0, 17: 0.0, 18: 0.0, 19: 0.0}})
