@@ -111,7 +111,7 @@ def k_medoids(distMatrix, interval, init_medoids):
 #---------------------------------------------------
 
 # Puerto Madryn March 5-25
-dat = pd.read_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region1_2016-03-05_2016-03-25.feather')
+dat = pd.read_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region1_2016-3-5_2016-3-25.feather')
 # Import data
 print("Robustness Checks: Region 1 March 5 - 25")
 # # Day

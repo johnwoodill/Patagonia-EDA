@@ -124,7 +124,7 @@ if __name__ == "__main__":
     files = glob.glob("/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/feather" + "/*.feather")
 
     nfiles = sorted(files)
-    nfiles = nfiles[68:79]
+    nfiles = nfiles[63:84]
     nfiles
 
     print(f"{datetime.datetime.now()}: Binding data [1/4]")
@@ -151,11 +151,11 @@ if __name__ == "__main__":
     end = pd.Timestamp(f"{end_year} - {end_month} - {end_day} 23:59")
     
     # Puerto Mardryn Area
-    #region = 1
-    # lon1 = -62.925222
-    # lon2 = -54.418267
-    # lat1 = -45
-    # lat2 = -40
+    region = 1
+    lon1 = -62.925222
+    lon2 = -54.418267
+    lat1 = -45
+    lat2 = -40
 
     # Puerto Mardryn Area #2
 #     region = 2
@@ -165,11 +165,11 @@ if __name__ == "__main__":
 #     lat2 = -40 + 1
 
     # Puerto Mardryn Area #3
-    region = 3
-    lon1 = -62.925222 - 2
-    lon2 = -54.418267 + 2
-    lat1 = -45 - 2
-    lat2 = -40 + 2
+#     region = 3
+#     lon1 = -62.925222 - 2
+#     lon2 = -54.418267 + 2
+#     lat1 = -45 - 2
+#     lat2 = -40 + 2
     
     df = calc_dist(mdat, start=start, end=end, lon1=lon1, lon2=lon2, lat1=lat1, lat2=lat2)
     
@@ -179,8 +179,3 @@ if __name__ == "__main__":
     df.to_feather(f"~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region{region}_{start_year}-{start_month}-{start_day}_{end_year}-{end_month}-{end_day}.feather")
     
     
-    
-    
-    
-import pandas as pd
-dat = pd.DataFrame({'day': {0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 2, 11: 2, 12: 2, 13: 2, 14: 2, 15: 2, 16: 2, 17: 2, 18: 2, 19: 2}, 'hour': {0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 2, 6: 2, 7: 2, 8: 2, 9: 2, 10: 1, 11: 1, 12: 1, 13: 1, 14: 1, 15: 2, 16: 2, 17: 2, 18: 2, 19: 2}, 'distance': {0: 1.2898851269657656, 1: 0.0, 2: 0.8371526423804061, 3: 0.8703856587273138, 4: 0.6257425922449789, 5: 0.0, 6: 0.0, 7: 0.0, 8: 1.2895328696587023, 9: 0.0, 10: 0.6875527848294374, 11: 0.0, 12: 0.0, 13: 0.9009031833559706, 14: 0.0, 15: 1.1040652963428623, 16: 0.0, 17: 0.0, 18: 0.0, 19: 0.0}})
