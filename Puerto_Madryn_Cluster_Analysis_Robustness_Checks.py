@@ -172,9 +172,13 @@ pdat2.to_feather('~/Projects/Patagonia-EDA/data/Puerto_Madryn_region1_NN5_k_medo
 # # Day by hour
 distMatrix_dh, distArray_dh = d_matrix(dat, interval='dayhour', NN=1) 
 pdat3 = k_medoids(distMatrix_dh, interval='dayhour', init_medoids=[30, 90, 140])
-distMatrix = distMatrix.reset_index(drop=False)
-distMatrix.columns = distMatrix.columns.astype(str)
-distMatrix.to_feather('~/Data/GFW_point/Patagonia_Shelf/Puerto_Madryn/dist_matrices/dmat_Puerto_Madryn_region1_NN1_day-hour_2016-03-01_2016-03-31.feather')
+***
+distMatrix_dh = distMatrix_dh.reset_index(drop=False)
+distMatrix_dh = distMatrix_dh.rename(columns={x:y for x,y in zip(distMatrix_dh.columns,range(0,len(distMatrix_dh.columns)))})
+distMatrix_dh.columns = distMatrix_dh.columns.astype(str)
+distMatrix_dh = distMatrix_dh.iloc[:, 1:]
+distMatrix_dh.to_feather('~/Data/GFW_point/Patagonia_Shelf/Puerto_Madryn/dist_matrices/dmat_Puerto_Madryn_region1_NN1_day-hour_2016-03-01_2016-03-31.feather')
+***
 pdat3.to_feather('~/Projects/Patagonia-EDA/data/Puerto_Madryn_region1_NN1_k_medoids_dayhour_2016-03-01_2016-03-31.feather')
 
 distMatrix_dh, distArray_dh = d_matrix(dat, interval='dayhour', NN=5) 
