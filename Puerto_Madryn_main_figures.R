@@ -15,12 +15,13 @@ GAPI_Key <- file("~/Projects/Patagonia-EDA/Google_api_key.txt", "r")
 GAPI_Key <- readLines(GAPI_Key)
 register_google(key=GAPI_Key)
 
-dat <- read_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region3_2016-3-1_2016-3-31.feather')
+dat <- read_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region1_2016-3-1_2016-3-31.feather')
 dat$month <- month(dat$timestamp)
 dat$day <- day(dat$timestamp)
 dat$hour <- hour(dat$timestamp)
 dat$ln_distance <- log(1 + dat$distance)
 
+dat <- filter(dat, month == 3)
 
 # Figure 1a
 fig1_dat <- dat %>% 
@@ -44,7 +45,7 @@ lat2 = -40
 
 myLocation <- c(left=lon1 - 5, bottom=lat1 - 5, right=lon2 + 5, top=lat2 + 5)
 
-p1 <- ggmap(get_stamenmap(myLocation, zoom=5)) +
+p1 <- ggmap(get_stamenmap(myLocation, zoom=5, maptype = "toner-lite")) +
   theme_tufte(11) +
   theme(legend.position = 'none') +
   annotate("text", x=-53.5, y = -49.5, label="March 15, 2016", size = 4) +
@@ -60,21 +61,6 @@ p1 <- ggmap(get_stamenmap(myLocation, zoom=5)) +
   annotate("segment", x=Inf, xend=-Inf, y=Inf, yend=Inf, color = "grey")
 
 p1
-myMap <- get_stamenmap(location=myLocation,
-          source="stamen", color="bw")
-
-myMap
-ggmap(myMap, source="stamen", color="bw", zoom=5) +
-  theme(legend.position = 'none') +
-  geom_path(aes(x=vessel_A_lon, y=vessel_A_lat, color=factor(vessel_A)), size = .5, alpha=.5, data = fig1_dat) +
-  annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, color = "grey") +
-  annotate("segment", x=-Inf, xend=-Inf, y=-Inf, yend=Inf, color = "grey") +
-  annotate("segment", x=Inf, xend=Inf, y=-Inf, yend=Inf, color = "grey") +
-  annotate("segment", x=Inf, xend=-Inf, y=Inf, yend=Inf, color = "grey")
-  
-p1
-stamen: terrain
-
 
 # Figure 1b
 
@@ -85,24 +71,25 @@ fig2_dat <- dat %>%
   ungroup()
 
 p2 <- ggplot(fig2_dat, aes(x=rank, y=ln_distance)) +
-  # geom_bar(stat='identity', width=0.1, space=1) +
-  geom_point(space=1) +
+  geom_linerange(aes(ymin=0, ymax = ln_distance), color="grey") +
+  geom_point() +
   ylab("Log(NN Distance)") + xlab("Nearest Neighbor (NN)") +
   ylim(0, 3) + 
   annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, color = "grey") +
   annotate("segment", x=-Inf, xend=-Inf, y=-Inf, yend=Inf, color = "grey") +
   annotate("segment", x=Inf, xend=Inf, y=-Inf, yend=Inf, color = "grey") +
   annotate("segment", x=Inf, xend=-Inf, y=Inf, yend=Inf, color = "grey") +
-  geom_linerange(aes(ymin=0, ymax = ln_distance)) +
   theme_tufte(11) +
   scale_x_continuous(breaks = seq(1, 10, 1))
 p2
+
 #ggsave("~/Projects/Patagonia-EDA/figures/Main Figures/figure2.pdf")
 
 # Figure 1c
 
 fig3_dat <- dat %>%
   filter(rank <= 5) %>% 
+  filter(distance != 0) %>% 
   group_by(day, hour) %>% 
   summarise(mean_distance = mean(ln_distance))
 
@@ -123,31 +110,34 @@ figure1 <- ggdraw() + draw_plot(p1, .0, .00, height = 1, width = .55)
 figure1 <- figure1 + draw_plot(p2, .55, .5, height = .5, width = .45)
 figure1 + draw_plot(p3, .55, .0, height = .5, width = .45)
 
-ggsave(filename = "~/Projects/Patagonia-EDA/figures/Main Figures/figure1.pdf", width = 7, height = 5)
+ggsave(filename = "~/Projects/Patagonia-EDA/figures/Main Figures/figure1.pdf", width = 6, height = 4)
 
 # Figure 2
 
 # (A)
 {
-dat <- read_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region1_2016-03-10_2016-03-20.feather')
-dat <- filter(dat, distance != 0)
-dat <- filter(dat, rank <= 5)
+#dat <- read_feather('~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region1_2016-3-1_2016-3-31.feather')
+dat2 <- filter(dat, day >= 10 & day <= 20)
+dat2$day <- day(dat2$timestamp)
 
-dat$date <- paste0(year(dat$timestamp), "-", month(dat$timestamp), "-", day(dat$timestamp), "-", hour(dat$timestamp))
+dat2 <- filter(dat2, distance != 0)
+dat2 <- filter(dat2, rank <= 5)
 
-dat <- dat %>% 
+dat2$date <- paste0(year(dat2$timestamp), "-", month(dat2$timestamp), "-", day(dat2$timestamp), "-", hour(dat2$timestamp))
+
+dat2 <- dat2 %>% 
   mutate(day = day(timestamp),
          hour = hour(timestamp)) %>% 
   group_by(timestamp, date, vessel_A) %>% 
   summarise(distance = mean(distance)) %>% 
   ungroup() %>% 
   mutate(ln_distance = log(1 + distance))
-head(dat)  
+head(dat2)  
 
 breaks <- 50
 outdat <- data.frame()
-for (i in unique(dat$timestamp)){
-  indat <- filter(dat, timestamp == i)
+for (i in unique(dat2$timestamp)){
+  indat <- filter(dat2, timestamp == i)
   efunc <- ecdf(indat$ln_distance)
   cdat <- cut(indat$ln_distance, breaks = breaks)
   
@@ -189,10 +179,6 @@ outdat$timestamp
 as.Date.POSIXct(outdat$timestamp, c("%Y-%m-%d %h:00:00 PST"))
 outdat$timestamp <- as.POSIXct(outdat$timestamp)
 
-#as.Date(outdat$timestamp, c("%Y-%m-%d %h:00:00 PST"))
-
-#outdat$timestamp <- as.Date(outdat$timestamp)
-
 fig2a <- ggplot(outdat, aes(timestamp, factor(bin))) + 
   geom_raster(aes(fill = prob)) +
   theme_tufte(11) +
@@ -222,8 +208,7 @@ fig2a <- ggplot(outdat, aes(timestamp, factor(bin))) +
 
 fig2a
 
-ggsave("~/Projects/Patagonia-EDA/figures/Main Figures/figure2a.png", width = 6, height = 4)
-ggsave("~/Projects/Patagonia-EDA/figures/Main Figures/figure2a.pdf", width = 6, height = 4)
+#ggsave("~/Projects/Patagonia-EDA/figures/Main Figures/figure2a.pdf", width = 6, height = 4)
 
 }
 
@@ -233,6 +218,8 @@ ggsave("~/Projects/Patagonia-EDA/figures/Main Figures/figure2a.pdf", width = 6, 
 # Figure 2 (B) 
 
 dat <- as.data.frame(read_feather("/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/Puerto_Madryn/dist_matrices/dmat_Puerto_Madryn_region1_NN1_day-hour_2016-03-01_2016-03-31.feather"))
+
+# dat <- filter(dat, distance != 0)
 dat$index <- NULL
 names(dat)[1] <- "day"
 
@@ -245,14 +232,9 @@ fig2b <- ggplot(pdat, aes(x=day, y=day2)) +
   theme_tufte(11) + 
   geom_tile(aes(fill=value)) +
   labs(y="March", x="March", fill="J-S Metric") +
-  #geom_raster(aes(fill=value), interpolate = TRUE) +
   scale_fill_gradient(low='white', high='red') +
   scale_y_continuous(trans = "reverse", expand=expand_scale(mult = c(0, 0))) +
   scale_x_continuous(breaks = seq(1, 31, 1), expand=expand_scale(mult = c(0, 0))) +
-  # geom_vline(xintercept = 6) +
-  # geom_vline(xintercept = 20) +
-  # geom_hline(yintercept = 6) +
-  # geom_hline(yintercept = 20) +
   annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, color = "black") +
   annotate("segment", x=-Inf, xend=-Inf, y=-Inf, yend=Inf, color = "black") +
   annotate("segment", x=Inf, xend=Inf, y=-Inf, yend=Inf, color = "black") +
@@ -459,7 +441,8 @@ JSD <- function(p, q){
   return(JS)
 }
 library(MASS)
-dat <- as.data.frame(read_feather("~/Data/GFW_point/Patagonia_Shelf/Puerto_Madryn/dist_matrices/dmat_Puerto_Madryn_region1_NN1_day-hour_2016-03-01_2016-03-31.feather"))
+dat <- as.data.frame(read_feather("~/Data/GFW_point/Patagonia_Shelf/Puerto_Madryn/dist_matrices/dmat_Puerto_Madryn_region1_NN1_day-hour_2016-03-10_2016-03-20.feather"))
+head(dat)
 dat <- dat[-1, -1]
 d <- as.matrix(dat)
 fit <- isoMDS(d, k=3)

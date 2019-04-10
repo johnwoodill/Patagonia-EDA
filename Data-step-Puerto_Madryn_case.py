@@ -124,7 +124,7 @@ if __name__ == "__main__":
     files = glob.glob("/home/server/pi/homes/woodilla/Data/GFW_point/Patagonia_Shelf/feather" + "/*.feather")
 
     nfiles = sorted(files)
-    nfiles = nfiles[63:84]
+    nfiles = nfiles[59:90]
     nfiles
 
     print(f"{datetime.datetime.now()}: Binding data [1/4]")
@@ -156,20 +156,34 @@ if __name__ == "__main__":
     lon2 = -54.418267
     lat1 = -45
     lat2 = -40
+    
+    df = calc_dist(mdat, start=start, end=end, lon1=lon1, lon2=lon2, lat1=lat1, lat2=lat2)
+    
+    #print(mdat)
+    print(f"{datetime.datetime.now()}: Saving: ~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region{region}_{start_year}-{start_month}-{start_day}_{end_year}-{end_month}-{end_day}.feather [4/4]")
+    df = df.reset_index(drop=True)
+    df.to_feather(f"~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region{region}_{start_year}-{start_month}-{start_day}_{end_year}-{end_month}-{end_day}.feather")
 
-    # Puerto Mardryn Area #2
-#     region = 2
-#     lon1 = -62.925222 - 1
-#     lon2 = -54.418267 + 1
-#     lat1 = -45 - 1
-#     lat2 = -40 + 1
+    #Puerto Mardryn Area #2
+    region = 2
+    lon1 = -62.925222 - 1
+    lon2 = -54.418267 + 1
+    lat1 = -45 - 1
+    lat2 = -40 + 1
+
+    df = calc_dist(mdat, start=start, end=end, lon1=lon1, lon2=lon2, lat1=lat1, lat2=lat2)
+    
+    #print(mdat)
+    print(f"{datetime.datetime.now()}: Saving: ~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region{region}_{start_year}-{start_month}-{start_day}_{end_year}-{end_month}-{end_day}.feather [4/4]")
+    df = df.reset_index(drop=True)
+    df.to_feather(f"~/Data/GFW_point/Patagonia_Shelf/complete/Puerto_Madryn_region{region}_{start_year}-{start_month}-{start_day}_{end_year}-{end_month}-{end_day}.feather")
 
     # Puerto Mardryn Area #3
-#     region = 3
-#     lon1 = -62.925222 - 2
-#     lon2 = -54.418267 + 2
-#     lat1 = -45 - 2
-#     lat2 = -40 + 2
+    region = 3
+    lon1 = -62.925222 - 2
+    lon2 = -54.418267 + 2
+    lat1 = -45 - 2
+    lat2 = -40 + 2
     
     df = calc_dist(mdat, start=start, end=end, lon1=lon1, lon2=lon2, lat1=lat1, lat2=lat2)
     
